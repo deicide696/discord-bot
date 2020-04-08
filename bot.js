@@ -17,6 +17,11 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, proces
 const User = sequelize.define('user', {
   name: {
     type: Sequelize.STRING
+  },
+  discordId: {
+    type: Sequelize.INTEGER,
+    unique: true,
+    allowNull: false
   }
 });
 
@@ -95,26 +100,32 @@ client.on('ready', () => {
 
 client.on('message', async message => {
 
-  try {
-        // equivalent to: INSERT INTO tags (name, descrption, username) values (?, ?, ?);
-        const tag = await Tags.create({
-          name: 'prueba',
-          description: 'tagDescription',
-          username: message.author.username,
+  if (message.content === '$reportediario') {
+
+    // Busca el usuario en la base de datos, sino lo agrega
+    const findUser = await User.findOne({ where: { discordId: message.author.id } });
+
+    if (findUser === null) {
+
+      try {
+        const user = await User.create({
+          name: message.author.username,
+          discordId: message.author.id,
+          teamId: 1,
         });
-        return message.reply(`Tag ${tag.name} added.`);
-      } catch (e) {
-        if (e.name === 'SequelizeUniqueConstraintError') {
-          return message.reply('That tag already exists.');
-        }
-        return message.reply('Something went wrong with adding a tag.');
+
+        return message.reply(`User ${user.name} added.`)
       }
 
+      catch (e) {
 
+        if (e.name === 'SequelizeUniqueConstraintError') {
+          console.log('That user already exists.')
+        }
 
-
-
-  if (message.content === '$reportediario') {
+        console.log('Something went wrong with adding a user.');
+      }
+    }
 
   	var days = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sábado']
 
