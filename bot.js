@@ -3,13 +3,14 @@ require('dotenv').config();
 
 const Discord = require('discord.js');
 const Sequelize = require('sequelize');
+const addSubtractDate = require("add-subtract-date");
 
 const client = new Discord.Client();
 
 const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASS, {
   host: process.env.DB_HOST,
   dialect: 'sqlite',
-  logging: true,
+  logging: false,
   storage: process.env.DB_STORAGE,
 });
 
@@ -49,11 +50,23 @@ User.belongsTo(Team)
 Task.belongsTo(Team)
 Task.belongsTo(User)
 
-client.on('ready', () => {
+client.on('ready', async () => {
   
   console.log(`Logged in as ${client.user.tag}!`)
 
   User.sync()
+  // Task.sync({force: true}).then(function () {
+
+  //   Task.create({
+  //     name: 'Prueba',
+  //     description: 'Descripción de prueba',
+  //     status: 'pendiente',
+  //     deadline: new Date().toISOString().slice(0,10),
+  //     teamId: 1,
+  //     userId: 1
+  //   })  
+  // });
+
   Task.sync()
 
   // DROP TABLE IF EXISTS `teams` (force: true)
@@ -100,15 +113,18 @@ client.on('ready', () => {
 
 client.on('message', async message => {
 
+  var indexTaskYesterday = 1;
+  var findAllTaskYesterday;
+
   if (message.content === '$reportediario') {
 
     // Busca el usuario en la base de datos, sino lo agrega
-    const findUser = await User.findOne({ where: { discordId: message.author.id } });
+    var currentUser = await User.findOne({ where: { discordId: message.author.id } });
 
-    if (findUser === null) {
+    if (currentUser === null) {
 
       try {
-        const user = await User.create({
+        currentUser = await User.create({
           name: message.author.username,
           discordId: message.author.id,
           teamId: 1,
@@ -173,9 +189,41 @@ client.on('message', async message => {
   		message.reply('Empecemos por AYER')
     }, 20000);
 
-    setTimeout(function(){
-  		message.reply('Quedaron listas o completadas las siguientes tareas, que estaban programas para hacer AYER? responde SI o NO:')
-    }, 22000);
+    var yesterday = addSubtractDate.subtract(new Date(), 1, "days")
+
+    // Busca las tareas del día de ayer del usuario en la base de datos
+    findAllTaskYesterday = await Task.findAll({ where: { deadline: yesterday.toISOString().slice(0,10) + 'T00:00:00.000Z', userId: currentUser.id } });
+
+    if(findAllTaskYesterday) {
+
+      setTimeout(function(){
+        message.reply('Quedaron listas o completadas las siguientes tareas, que estaban programas para hacer AYER? responde SI o NO:')
+
+        message.reply('- La tarea ' + findAllTaskYesterday[0].name + ' fue completada?');
+
+      }, 22000);
+    }
+
+    else {
+
+      setTimeout(function(){
+        message.reply('No tienes ninguna tarea')
+      }, 22000);
+    }    
+  }
+
+  else if(message.content === '$si'){
+    
+    message.reply('Felicitaciones por haber completado la tarea!')
+
+    for (var i = indexTaskYesterday; i < findAllTaskYesterday.length; i++) {
+      
+      setTimeout(function(){
+
+        message.reply('- La tarea ' + findAllTaskYesterday[i].name + ' fue completada?');
+
+      }, 2000);
+    }
   }
 });
 
